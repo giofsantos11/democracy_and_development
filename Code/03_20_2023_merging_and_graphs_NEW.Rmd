@@ -1,65 +1,89 @@
 ---
-title: "Backup"
+title: "Code Base for Graphs and Data Merging"
 author: "Mike"
-date: "2022/4/4"
-output: html_document
+date: "2023/3/23"
+output:   pdf_document:
+    latex_engine: lualatex
+fontsize: 12pt
+mainfont: Calibri Light
+header-includes:
+- \usepackage{setspace}\doublespacing
+- \usepackage{fvextra}
+- \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 my.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(my.dir) 
-library(haven)
-library(dplyr)
-library(ggplot2)
-library(patchwork)
-library(hrbrthemes)
-penn_world <- read_dta("data/pwt1001.dta")
+library(dplyr) #for dataset manipulation
+library(ggplot2) #for creating graphs
+library(patchwork) #for graphs with 2 y axes
+library(hrbrthemes) #similar to the above
+library(pwt10) #for the Penn World Tables -- load "pwt10.01"
+library(countrycode) # for the country codes
+data("pwt10.01") #be sure to left click "pwt10.01" in the values section in R
 polity <- read.csv("data/p5v2018.csv")
 ```
 
 ## Backup
 ```{r, include=FALSE, results='asis'}
 #creating a subset of the datasets to build the main dataset
-df_penn_world <- penn_world%>% dplyr::select(country, countrycode, year, rgdpna, rgdpe, rgdpo, pop)
-df_polity <- polity%>%dplyr::select(country, scode, year, polity, polity2, p5, democ, autoc)
-df_merged <- merge(df_penn_world, df_polity, by=c("country", "year"))
+df_penn_world <- pwt10.01%>% dplyr::select(country, isocode, year, rgdpna, rgdpe, rgdpo, pop)
+df_polity <- polity%>%dplyr::select(country, year, polity, polity2, p5, democ, autoc)
+# Create a new variable 'iso' containing ISO codes for each country
+df_polity$isocode <- countrycode(sourcevar = df_polity$country,
+                          origin = "country.name",
+                          destination = "iso3c")
+
+#merging the following datasets
+df_merged <- merge(df_penn_world, df_polity, by=c("isocode", "year"))
 #not sure about this -- see the polity handbook for what -11, -66, and -88 mean
 df_merged <- df_merged %>% filter(polity>-11)
 
-#basic per capita gdp metric
-df_merged$per_cap_gdp <- df_merged$rgdpna/df_merged$pop
+#Add regions for each country in the dataset
+df_merged$region <- countrycode(sourcevar = df_merged$country.x,
+                             origin = "country.name",
+                             destination = "region")
+df_merged$isocode <- as.character(df_merged$isocode)
+str(df_merged$isocode)
 
-#testing to show two graphs side by side
-#graph 1 for polity2 score by rgdpna
-df_merged %>%filter(country=="Chile")%>% ggplot(., aes(x=rgdpna, y=polity2)) + ylim(-10,10) +
+#adding a basic per capita gdp metric
+df_merged$per_cap_gdp <- (df_merged$rgdpna*1000000)/(df_merged$pop*1000000)
+
+#separating Europe from Central Asia
+df_merged$region <- ifelse(df_merged$isocode=="KAZ" | df_merged$isocode=="TJK" | df_merged$isocode=="UZB" | df_merged$isocode=="TKM" | df_merged$isocode=="KGZ", "Central Asia", df_merged$region)
+df_merged$region <- ifelse(df_merged$region=="Europe & Central Asia", "Europe",df_merged$region)
+str(df_merged$europe)
+
+#creating the Europe and North America Dataset
+df_na_europe <- df_merged %>% filter(region=="Europe" | region=="North America")
+df_na_europe$country.x <- as.character(df_na_europe$country.x)
+unique(df_na_europe$country.x)
+
+#test graph for formatting
+ggplot(df_na_europe %>% filter(isocode == "FRA"), aes(x=rgdpna, y=polity)) + ylim(-10,10) +
   geom_point(color="#69b3a2", size=2) +
-  ggtitle("Table 1: Polity2 Score by Real Nominal GDP for Chile") +
-  theme_ipsum() -> p1
-#prints the graph
-p1
+  ggtitle("Table: Polity2 Score by Real Nominal GDP") +
+  theme_ipsum()
 
-#no longer used
-#graph 2 for income
-#df_merged %>%filter(country=="Chile")%>% ggplot(., aes(x=rgdpna, y=rgdpe)) +
-#  geom_line(color="grey",size=2) +
-#  ggtitle("Income By Year") +
-#  theme_ipsum() -> p2
-#the two graphs side by side
-#p1+p2
+isocode <- unique(df_na_europe$isocode)
+plot_list <- list()
+#basic loop in ggplot2
+for (i in isocode) {
+    # Generate a graph for the current country and year
+  pl <- ggplot(df_na_europe %>% filter(isocode==i), aes(x = per_cap_gdp/1000, y = polity)) + ylim(-10,10) + geom_line() + 
+    ggtitle(paste("Polity Score for", df_na_europe$country.x, "given a value of real nominal per capita GDP"))
+  print(pl) 
+  #store the plot in the list with id as the name
+  plot_list[[as.character(i)]] <- pl
+}
 
-#testing to see if the main datasets and the merged datasets are similar -- not necessary. 
-#df %>%filter(country=="Japan")%>%
-#ggplot(., aes(x = year, y = rgdpe)) + 
-#geom_point() + xlab('Date Delineated in Years') + ylab('RGDPE Rate') + stat_smooth(method = "loess", col = "red") + theme(text=element_text(size=12,  family="serif")) + ggtitle("Figure 2: Test of Merged")
-
-#df_polity%>%filter(country=="Japan")%>%
-#ggplot(., aes(x = year, y = polity)) + 
-#geom_point() + xlab('Date Delineated in Years') + ylab('Polity2') + stat_smooth(method = "loess", col = "red") + theme(text=element_text(size=12,  family="serif")) + ggtitle("Figure 3: Test of Polity")
-
-#df_merged%>%filter(country=="Japan")%>%
-#ggplot(., aes(x = year, y = polity)) + 
-#geom_point() + xlab('Date Delineated in Years') + ylab('Polity2') + stat_smooth(method = "loess", col = "red") + theme(text=element_text(size=12,  family="serif")) + ggtitle("Figure 4: Test of Merged")
+pdf('graphs/graph.pdf')
+pdf.options(width = 9, height = 7)
+for (i in 1:length(plot_list)){
+  print(plot_list[[i]])
+}
 ```
 
 ```{r, include=FALSE, results='asis'}
@@ -68,11 +92,13 @@ p1
 coef <- 1000
 
 #code for China
-df_merged %>% filter(country=="China")%>%
-  ggplot(., aes(x = year)) + geom_line(aes(y=polity2), col="blue", size=2) + geom_line(aes(y=rgdpna/coef), col = "red", size=2) + scale_y_continuous("Polity Score", sec.axis = sec_axis(~., name="GDP")) + ggtitle("Graph comparing polity score and gdp value China") + theme(axis.title.y = element_text(color = "blue", size=13), axis.title.y.right = element_text(color = "red", size=13))
-
-#code for Chile
-df_merged %>% filter(country=="Chile")%>%
-  ggplot(., aes(x = year)) + geom_line(aes(y=polity), col="blue", size=2) + geom_line(aes(y=per_cap_gdp/coef), col = "red", size=2) + scale_y_continuous("Polity Score", sec.axis = sec_axis(~., name="GDP")) + ggtitle("Graph comparing polity score and gdp value Chile")+ theme(axis.title.y = element_text(color = "blue", size=13), axis.title.y.right = element_text(color = "red", size=13))
+df_merged %>% filter(country.x=="Japan")%>%
+  ggplot(., aes(x = year)) + 
+  #First Y Axis
+  geom_line(aes(y=polity2), col="blue", size=2) + 
+  geom_line(aes(y=per_cap_gdp/10000), col = "red", size=2) +
+  scale_y_continuous(name="Polity Score", limits = c(-10, 10), expand=c(.1,.1), sec.axis = sec_axis(~.*10000, name="GDP per capita"),
+                     labels = function(x) format(x, scientific = FALSE)) + 
+  ggtitle("Graph comparing polity score and gdp per capita value of China") + 
+  theme(axis.title.y = element_text(color = "blue", size=13), axis.title.y.right = element_text(color = "red", size=13))
 ```
-
