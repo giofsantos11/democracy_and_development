@@ -1,3 +1,4 @@
+rm(list = ls())
 
 # Before doing anything, make sure you have a directory for the folder location that contains
 # the p5v2018.csv file
@@ -17,7 +18,6 @@ assignedregions <- c("Africa", "Oceania")
 # No need to do anything beyond this point
 #--------------------------------------------------------------------------------------------
 # Library
-rm(list = ls())
 
 ## Install the packages
 if(!require("dplyr")) install.packages("dplyr")
@@ -100,11 +100,7 @@ df_merged$region_dd <- ifelse(df_merged$isocode == "LUX", "Europe and North Amer
                                                    ifelse(df_merged$isocode == "SUR", "Latin America",
                                                           df_merged$region_dd)))))
 
-## Change to your regions: options are "Africa", "Europe and North America", "Middle East and Central Asia",
-## "Latin America", "Oceania" and "East and South Asia"
-# Keep only Sub-Saharan Africa and Oceania
 subdata <- df_merged[df_merged$region_dd %in% assignedregions, ]
-
 isocode <- unique(subdata$country.x)
 plot_list <- list()
 
