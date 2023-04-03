@@ -17,7 +17,6 @@ assignedregions <- c("Africa", "Oceania")
 #--------------------------------------------------------------------------------------------
 # No need to do anything beyond this point
 #--------------------------------------------------------------------------------------------
-# Library
 
 ## Install the packages
 if(!require("dplyr")) install.packages("dplyr")
@@ -27,7 +26,6 @@ if(!require("hrbrthemes")) install.packages("hrbrthemes")
 if(!require("pwt10")) install.packages("pwt10") 
 if(!require("countrycode")) install.packages("countrycode")
 
-# Keep only Sub-Saharan Africa and Oceania
 library(dplyr) #for dataset manipulation
 library(ggplot2) #for creating graphs
 library(patchwork) #for graphs with 2 y axes
