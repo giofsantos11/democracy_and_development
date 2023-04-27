@@ -32,7 +32,7 @@ df_merged$per_cap_gdp <- df_merged$rgdpna/df_merged$pop
 
 #testing to show two graphs side by side
 #graph 1 for polity2 score by rgdpna
-df_merged %>%filter(country=="Chile")%>% ggplot(., aes(x=rgdpna, y=polity2)) + ylim(-10,10) +
+df_merged %>%filter(country=="Bangladesh")%>% ggplot(., aes(x=rgdpna, y=polity2)) + ylim(-10,10) +
   geom_point(color="#69b3a2", size=2) +
   ggtitle("Table 1: Polity2 Score by Real Nominal GDP for Chile") +
   theme_ipsum() -> p1
